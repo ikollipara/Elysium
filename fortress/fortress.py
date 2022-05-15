@@ -18,119 +18,121 @@ from .query_visitor import QueryVisitor
 from re import compile as re_compile
 
 
-def __parse_to_query(lambda_func: Callable[[Any], bool], base_name: str) -> str:
-    """Parse the given lambda into a Deta Query.
-
-    This function combines the most important modules of the
-    project into a single function. It parses the lambda into
-    a query that is then evaluated into a deta query dictionary.
-    """
-
-    return QueryVisitor(decompile(lambda_func), base_name, lambda_func.__globals__).generate_query()  # type: ignore
-
-
 class Fortress:
 
-    """Fortress Main class
+    """ Fortress
 
-    This is the main class. All models inherit from the
-    model subclass, and all functionality for inserting, querying, etc.
-    is handled within.
+    Fortress is a Deta ORM. To create a model, subclass the Fortress.Model
+    and use the dataclass decorator. This allows for model querying using
+    the lambda syntax.
     """
 
-    __models: List[Type["Fortress.Model"]] = []
-    __bases: Dict[Type["Fortress.Model"], _Base] = {}
+    _models: List[Type["Fortress.Model"]] = []
+    _bases: Dict[Type["Fortress.Model"], _Base] = {}
 
     def __init__(self, deta: Optional[Deta] = None) -> None:
         self.deta = deta or Deta()
 
+
+    def create_mappings(self):
+        """Generate bases for registered models."""
+
+        self._bases = {model: self.deta.Base(model.__name__) for model in self._models}
+
+
+    @classmethod
+    def insert(cls, item: "Fortress.Model" | List["Fortress.Model"]):
+        """Insert one or more items into the deta base."""
+
+        base = cls._bases[cls] # type: ignore
+
+        if isinstance(item, list):
+            item_dicts = [i.__dict__ for i in item]
+            base.put_many(item_dicts) # type: ignore
+
+        else:
+            item_dict = item.__dict__.copy()
+            key = item_dict.pop("key")
+            base.put(item_dict, key)
+
+
     @dataclass
     class Model:
 
+        """ Fortress Model
+
+        This is the base class for all Fortress Models. It defines
+        how a model is implemented and stored in Fortress.
+
+        To use simply subclass it as Fortress.Model. Ideally the
+        model would also be a dataclass. When subclassing, you
+        may provide an alternative table name, as well as a callable
+        to generate keys from. These keys should be no argument functions
+        that result in a string.
+        """
+
         __camel_to_snake = re_compile(r"(?<!^)(?=[A-Z])")
         __table_name__: ClassVar[str]
-        __key_func: ClassVar[Callable[[], str]]
+        __key_func: ClassVar[Callable[[Self], str]]
 
-        @classmethod
-        def __camel_to_snake_transformer(cls, camelcase: str) -> str:
-            """Transform a camelcase string to snake case."""
 
-            return cls.__camel_to_snake.sub("_", camelcase).lower()
+        def __init_subclass__(cls, table_name: Optional[str] = None, key_generator: Optional[Callable[[], str]] = None) -> None:
+            cls.__table_name__ = table_name or cls.__camel_to_snake.sub("_", cls.__name__).lower()
+            cls.__key_func = (lambda x: key_generator()) if key_generator else (lambda x: str(uuid4()))
 
-        def __init_subclass__(
-            cls,
-            table_name: Optional[str] = None,
-            key_func: Optional[Callable[[], str]] = None,
-        ) -> None:
-            table_name = table_name or cls.__camel_to_snake_transformer(cls.__name__)
-            cls.__table_name__ = table_name
-            cls.__key_func = key_func or (lambda: str(uuid4()))
-
-            Fortress.__models.append(cls)
+            Fortress._models.append(cls)
 
         def __post_init__(self):
-            self._key = self.__key_func()
+            self.key = self.__key_func() # type: ignore
+
 
         @classmethod
-        def fetch(
-            cls, query: Optional[Callable[[Self], bool]] = None, *, limit: int = 1000
-        ) -> List[Self]:
-            """
-            Fetch a set of objects from the deta based on the query. If no query is given,
-            return all objects possible, or up to the limit (default is 1000).
+        def fetch(cls, query: Optional[Callable[[Self], bool]] = None, *, limit: int = 1000, offset: int = 0) -> List[Self]:
+            """ Fetch a collection of models from the deta base.
+
+            Fetching can be filtered by writing a lambda function to serve as the query. This
+            function should take only the class as a parameter, and return a boolean. The amount
+            of results can be limited by the limit parameter. You may also offset your results
+            through an offset parameter.
             """
 
-            query_str = (
-                None if not query else eval(__parse_to_query(query, cls.__table_name__))
-            )
+            query_str = None if not query else eval(QueryVisitor(decompile(query), cls.__table_name__, query.__globals__).generate_query()) # type: ignore
 
             items: List[Self] = []
 
-            base = Fortress.__bases[cls]
-            res = base.fetch(query_str, limit=1000)
-            items += map(self.__init__, res.items)  # type: ignore
+            base = Fortress._bases[cls]
+            response = base.fetch(query_str, limit=1000)
+            items += [cls(**item) for item in response.items]
 
             if limit > 1000:
-                res = base.fetch(query_str, limit=1000)
-                leftover = limit
-                while res.last is not None:
+                leftover = limit - 1000
+
+                while leftover <= 0 or response.last is not None:
+                    response = base.fetch(query_str, limit=1000)
+                    items += [cls(**item) for item in response.items]
                     leftover -= 1000
-                    res = base.fetch(query_str, limit=leftover, last=res.last)
-                    items += map(self.__init__, res.items)  # type: ignore
 
             return items
 
         @classmethod
-        def get(cls, obj_key: str) -> Self | None:
-            base = Fortress.__bases.get(cls)
-            return cls(base.get(obj_key))  # type: ignore
+        def get(cls, key: str) -> Self | None:
+            """Get an item by its key."""
 
-    _T = TypeVar("_T", bound=Model)
+            if base := Fortress._bases.get(cls):
+                if item := base.get(key):
+                    return cls(**item)
 
-    @singledispatchmethod
-    @classmethod
-    def insert(cls, item: _T | List[_T]):
-        """Insert the given item(s) into the base."""
+        @classmethod
+        def delete(cls, key: str):
+            """Delete the item at the given key."""
 
-        if not isinstance(item, list):
-            base = cls.__bases[type(item)]
-            item_dict = item.__dict__
-            key = item_dict.pop("_key")
-            base.put(item.__dict__, key=key)
-            item_dict |= {"_key": key}
-        else:
-            [cls.insert(i) for i in item]
+            Fortress._bases[cls].delete(key)
 
+        @classmethod
+        def update(cls, updated_item: Self):
+            """Update the item with the new values."""
 
-    @classmethod
-    def delete(cls, del_obj: _T):
-        """Delete the object in the database."""
-
-        base = cls.__bases[type(del_obj)]
-
-        base.delete(del_obj._key)
-
-    def generate_mappings(self):
-
-        self.__bases = {model: self.deta.Base(model.__table_name__) for model in self.__models}
-    
+            base = Fortress._bases[cls]
+            update_dict = updated_item.__dict__.copy()
+            key = update_dict.pop("key")
+            base.put(update_dict, key)

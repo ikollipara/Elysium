@@ -1,0 +1,48 @@
+#+title: Fortress Readme
+#+author: Ian Kollipara
+#+date: <2022-05-15 Sun>
+
+* 🏰 Fortress
+
+Fortress is a Python ODM built for [[https:deta.sh][Deta]]. The main perks being:
+- Tight integration with Deta Base
+- Lambda queries to search with
+- Your choice off dataclasses or Pydantic for data modeling
+
+To install simply type:
+#+begin_src shell
+pip install fortress
+#+end_src
+
+Fortress is in development software, but the API is stable.
+
+** Roadmap
+- [X] Use Lambdas to query the database
+- [X] Allow use of Pydantic or dataclasses
+- [ ] Create Testing Suite
+- [ ] Implement Deta's updates on the backend
+- [ ] Implement some sort of way to handle related data (maybe ad-hoc joins?)
+
+** Usage
+
+#+begin_src python
+from fortress import Fortress
+from dataclasses import dataclass
+
+fortress = Fortress()
+
+@dataclass
+class Article(Fortress.Model):
+    title: str
+    author: str
+    body: str
+
+fortress.generate_mappings()
+
+
+a = Article("test", "ikollipara", "lorem ipsum")
+
+fortress.insert(a)
+
+Article.fetch(lambda a: a.title == "test") # Article("test", "ikollipara", "lorem ipsum")
+#+end_src

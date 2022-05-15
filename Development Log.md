@@ -36,3 +36,6 @@ The current idea is to use a base dataclass, similar to how I'm using pydantic.
 
 ## 2022.05.05
 I finally finished to decompiler and the Query Visitor. This is by far the most complex part of the project, but it's finally done. The next steps will be integrating it within the rest of the library's functionality.
+
+## 2022.05.14
+After updating my computer, and switching editors, I've come back to this project. My biggest plan is to iron out what I want the API to look like for this project. From what I've scaffolded, I'm looking at an API built around a main Fortress Class. 
