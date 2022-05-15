@@ -1,13 +1,12 @@
-#+title: Elysium Readme
+#+title:🏰 Elysium
 #+author: Ian Kollipara
 #+date: <2022-05-15 Sun>
 
-* 🏰 Elysium
-
-Elysium is a Python ODM built for [[https:deta.sh][Deta]]. The main perks being:
+Elysium is a Python ODM built for [[https:deta.sh][Deta]]. The name comes from one of the mountains of Mars. The main perks being:
 - Tight integration with Deta Base
 - Lambda queries to search with
 - Your choice off dataclasses or Pydantic for data modeling
+
 
 To install simply type:
 #+begin_src shell
