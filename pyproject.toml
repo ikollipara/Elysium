@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "fortress"
+name = "Elysium"
 version = "0.0.1"
 description = "Deta Base Typed ODM"
 authors = ["Ian Kollipara <ian.kollipara@cune.org>"]

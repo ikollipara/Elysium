@@ -8,4 +8,4 @@ a verbose testing suite to aid in development.
 '''
 
 # Exports
-from .fortress import Fortress
+from .elysium import Elysium

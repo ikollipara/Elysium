@@ -1,20 +1,20 @@
-#+title: Fortress Readme
+#+title: Elysium Readme
 #+author: Ian Kollipara
 #+date: <2022-05-15 Sun>
 
-* 🏰 Fortress
+* 🏰 Elysium
 
-Fortress is a Python ODM built for [[https:deta.sh][Deta]]. The main perks being:
+Elysium is a Python ODM built for [[https:deta.sh][Deta]]. The main perks being:
 - Tight integration with Deta Base
 - Lambda queries to search with
 - Your choice off dataclasses or Pydantic for data modeling
 
 To install simply type:
 #+begin_src shell
-pip install fortress
+pip install elysium
 #+end_src
 
-Fortress is in development software, but the API is stable.
+Elysium is in development software, but the API is stable.
 
 ** Roadmap
 - [X] Use Lambdas to query the database
@@ -26,23 +26,23 @@ Fortress is in development software, but the API is stable.
 ** Usage
 
 #+begin_src python
-from fortress import Fortress
+from elysium import Elysium
 from dataclasses import dataclass
 
-fortress = Fortress()
+elysium = Elysium()
 
 @dataclass
-class Article(Fortress.Model):
+class Article(Elysium.Model):
     title: str
     author: str
     body: str
 
-fortress.generate_mappings()
+elysium.generate_mappings()
 
 
 a = Article("test", "ikollipara", "lorem ipsum")
 
-fortress.insert(a)
+elysium.insert(a)
 
 Article.fetch(lambda a: a.title == "test") # Article("test", "ikollipara", "lorem ipsum")
 #+end_src
